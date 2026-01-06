@@ -5,6 +5,7 @@ import {
     sub,
     mul,
     len2,
+    len,
     dot,
     wrap,
     wrapDelta,
@@ -14,6 +15,7 @@ import { PlayerShip } from "../entities/PlayerShip";
 import { LightFragment } from "../entities/LightFragment";
 import { Debris } from "../entities/Debris";
 import { RepairKit } from "../entities/RepairKit";
+import { WarpGate } from "../entities/WarpGate";
 
 export type PlanetConfig = {
     worldW: number; // ★リングの周長（px）
@@ -43,8 +45,9 @@ export class PlanetScene implements Scene {
     private camX = 0;
     private camY = 0;
 
-    private warpGate: { x: number; y: number; r: number } | null = null;
+    private warpGate: WarpGate | null = null;
     private warpT = -1; // ワープ突入演出タイマー（-1: 未突入 / 0以上: 演出中）
+    private deathT = -1; // ゲームオーバー突入演出 (-1: 未突入)
 
     constructor(
         private game: Game,
@@ -55,7 +58,7 @@ export class PlanetScene implements Scene {
         this.worldW = cfg.worldW;
         this.worldH = h; // はる要望：縦は画面と同じくらい
 
-        this.player = new PlayerShip(v(w * 0.5, h * 0.5), game.input);
+        this.player = new PlayerShip(v(this.worldW * 0.5, h * 0.5), game.input);
         this.player.grantIFrames(1.2);
 
         // カメラ初期
@@ -130,23 +133,97 @@ export class PlanetScene implements Scene {
         return h * 0.5 + (wy - this.camY);
     }
 
-    update(dt: number): void {
-        if (this.warpT >= 0) {
-            this.warpT += dt;
-            const fade = Math.max(0, Math.min(1, this.warpT / 1.0));
-            this.player.setWarpFade(fade);
+    private drawWarpGate(
+        ctx: CanvasRenderingContext2D,
+        x: number,
+        y: number,
+        r: number,
+        a: number
+    ) {
+        if (a <= 0.001) return;
 
+        const t = performance.now() / 1000;
+        const pulse = 1 + 0.06 * Math.sin(t * 2.1);
+
+        ctx.save();
+        ctx.translate(x, y);
+
+        // 外側の“にじみ” (紫)
+        ctx.globalAlpha = a * 0.18;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.75 * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "#c79bff";
+        ctx.fill();
+
+        // メインリング（太くて明るい）
+        ctx.globalAlpha = a * 0.95;
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = "#e9fbff";
+        ctx.beginPath();
+        ctx.arc(0, 0, r * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 内側リング（薄い）
+        ctx.globalAlpha = a * 0.35;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#b56bff";
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.72 * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 回転する“欠けた弧”（ゲート感）
+        ctx.globalAlpha = 0.85;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#ffffff";
+        const rot = t * 0.9;
+        for (let i = 0; i < 3; i++) {
+            const a0 = rot + i * 2.1;
+            ctx.beginPath();
+            ctx.arc(0, 0, r * pulse, a0, a0 + 0.75);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
+    }
+
+    update(dt: number): void {
+        // ---- ゲームオーバー突入演出 ----
+        if (this.deathT >= 0) {
+            this.deathT += dt;
+
+            const f = Math.max(0, Math.min(1, this.deathT / 0.9));
+            this.player.setWarpFade(f);
             this.updateCamera();
 
-            if (this.warpT >= 1.1) {
+            if (this.deathT >= 1.1) {
+                this.done = true;
+                this.next = "gameover";
+            }
+            return;
+        }
+
+        // ---- ワープ突入演出 ----
+        if (this.warpT >= 0) {
+            this.warpT += dt;
+
+            this.warpGate?.update(dt);
+
+            // 船体の光だけ消える（余韻長め）
+            const fade = Math.max(0, Math.min(1, this.warpT / 1.2));
+            this.player.setWarpFade(fade);
+            this.updateCamera();
+
+            if (
+                this.warpT >= 2.2 &&
+                (!this.warpGate || this.warpGate.isDone())
+            ) {
                 this.done = true;
                 this.next = "warp";
                 this.game.setWarpFrom(this.planetIndex);
             }
             return;
         }
-
-        // const { w, h } = this.game.view;
         this.player.update(dt, this.worldW, this.worldH);
 
         // デブリ更新
@@ -155,6 +232,14 @@ export class PlanetScene implements Scene {
             d.update(dt, this.worldW, this.worldH);
             d.pos.x = wrap(d.pos.x, this.worldW);
             d.pos.y = clamp(d.pos.y, 0, this.worldH);
+        }
+
+        // 修理キットも漂わせる（見た目のため）
+        for (const r of this.repairs) {
+            if (r.dead) continue;
+            r.update(dt, this.worldW, this.worldH);
+            r.pos.x = wrap(r.pos.x, this.worldW);
+            r.pos.y = clamp(r.pos.y, 0, this.worldH);
         }
 
         // 光回収
@@ -176,11 +261,13 @@ export class PlanetScene implements Scene {
         if (!this.warpGate && this.collected >= this.total) {
             // プレイヤーの近くには出さない
             const yMargin = 32;
-            this.warpGate = {
-                ...(this.randPosFarFromPlayer(260, yMargin) as any),
-                r: 22,
-            };
+            const p = this.randPosFarFromPlayer(260, yMargin) as any;
+            this.warpGate = new WarpGate(p.x, p.y, 56);
+            this.warpGate.spawn();
         }
+
+        // ゲート更新（見た目・粒子）
+        this.warpGate?.update(dt);
 
         // デブリ衝突
         for (const d of this.debris) {
@@ -247,15 +334,24 @@ export class PlanetScene implements Scene {
 
         this.updateCamera();
 
-        // 死亡
+        // 死亡（即遷移せず、軽く演出）
         if (this.player.isDestroyed()) {
-            this.done = true;
-            this.next = "gameover";
+            this.deathT = 0;
+            this.player.setControlsEnabled(false);
+            this.player.vel = v(0, 0);
             return;
         }
 
-        // ワープ処理
-        if (this.warpGate && this.warpT < 0) {
+        // 光を使い切ったらゲームオーバーにしたい場合はオンにしてOK
+        if (this.player.isOutOfLight()) {
+            this.deathT = 0;
+            this.player.setControlsEnabled(false);
+            this.player.vel = v(0, 0);
+            return;
+        }
+
+        // ワープ処理（ゲートに入ったら演出へ）
+        if (this.warpGate && this.warpT < 0 && this.warpGate.isActive()) {
             const dx = wrapDelta(
                 this.player.pos.x - this.warpGate.x,
                 this.worldW
@@ -263,12 +359,21 @@ export class PlanetScene implements Scene {
             const dy = this.player.pos.y - this.warpGate.y;
             const dxdy = { x: dx, y: dy };
             const d2 = len2(dxdy);
+            const d = len(dxdy);
             const rr = this.player.radius + this.warpGate.r;
+
+            // 近づくと少しだけ薄く（吸われてる感）
+            const near = Math.max(
+                0,
+                Math.min(1, 1 - d / (this.warpGate.r * 3))
+            );
+            this.player.setWarpFade(near * 0.55);
+
             if (d2 <= rr * rr) {
                 this.warpT = 0;
                 this.player.setControlsEnabled(false);
-                this.player.vel.x = 0;
-                this.player.vel.y = 0;
+                this.player.vel = v(0, 0);
+                this.warpGate.beginConsume();
             }
         }
 
@@ -286,10 +391,14 @@ export class PlanetScene implements Scene {
         ctx.clearRect(0, 0, w, h);
         this.game.drawStars();
 
+        const t = performance.now() / 1000;
+        for (const l of this.lights) {
+            const wob =
+                Math.sin(t * 0.9 + l.pos.x * 0.01 + l.pos.y * 0.02) * 2.0;
+            l.draw(ctx, this.sx(l.pos.x), this.sy(l.pos.y + wob));
+        }
         for (const d of this.debris)
             d.draw(ctx, this.sx(d.pos.x), this.sy(d.pos.y));
-        for (const l of this.lights)
-            l.draw(ctx, this.sx(l.pos.x), this.sy(l.pos.y));
         for (const r of this.repairs)
             r.draw(ctx, this.sx(r.pos.x), this.sy(r.pos.y));
         this.player.draw(
@@ -298,22 +407,29 @@ export class PlanetScene implements Scene {
             this.sy(this.player.pos.y)
         );
 
+        // 画面フェード（演出）
+        if (this.warpT >= 0) {
+            // 後半で暗転（紫寄り）
+            const a = Math.max(0, Math.min(1, (this.warpT - 0.6) / 1.6));
+            ctx.globalAlpha = 0.15 + 0.85 * a;
+            ctx.fillStyle = "#07050d";
+            ctx.fillRect(0, 0, w, h);
+            ctx.globalAlpha = 1;
+        }
+        if (this.deathT >= 0) {
+            const a = Math.max(0, Math.min(1, this.deathT / 0.9));
+            ctx.globalAlpha = 0.15 + 0.85 * a;
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(0, 0, w, h);
+            ctx.globalAlpha = 1;
+        }
+
         // ワープゲートの描画
         if (this.warpGate) {
-            const a = this.warpT >= 0 ? 1 - Math.min(1, this.warpT / 1.0) : 1;
-            ctx.globalAlpha = 0.4 + 0.6 * a;
+            const sx = this.sx(this.warpGate.x);
+            const sy = this.sy(this.warpGate.y);
 
-            const x = this.sx(this.warpGate.x);
-            const y = this.sy(this.warpGate.y);
-
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(x, y, this.warpGate.r, 0, Math.PI * 2);
-            ctx.strokeStyle = "#777";
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.restore();
-            ctx.globalAlpha = 1;
+            this.warpGate.draw(ctx, sx, sy);
         }
 
         // デバッグ用テキスト

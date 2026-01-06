@@ -17,6 +17,8 @@ export class PlayerShip extends Entity {
     DEFAULTLIGHTCHARGE = 1;
     lightCharge = this.DEFAULTLIGHTCHARGE;
 
+    private pickupFlash = 0; // 取得演出（秒）
+
     private input: Input;
 
     private baseThrustMin = 210; // 加速
@@ -35,6 +37,8 @@ export class PlayerShip extends Entity {
     private boostCost = 0.3;
     private boostImpulse = 650;
     private boostFlash = 0;
+
+    private heading = 0; // 描画用の向き（rad）
 
     constructor(pos: Vec2, input: Input) {
         super(pos, v(0, 0), 12); // ← super
@@ -73,16 +77,22 @@ export class PlayerShip extends Entity {
         return true;
     }
 
-    /* 推進力レベルを設定 */
-    setPowerLevel(x: number) {}
-
-    /** 推進光を増やす（光を拾った時用） */
+    /** 光を拾った時の処理 */
     gainLight(x: number) {
         this.powerLevel = Math.max(0, Math.min(1, x));
         this.lightCharge = this.DEFAULTLIGHTCHARGE;
+        this.pickupFlash = 0.25;
+    }
+
+    // 光が無くなったか判定
+    isOutOfLight(): boolean {
+        return this.lightCharge <= 0.0001;
     }
 
     override update(dt: number, worldW: number, worldH: number): void {
+        // 光取得時のフラッシュ
+        this.pickupFlash = Math.max(0, this.pickupFlash - dt);
+
         // 無敵時間の減衰
         this.hurtCooldown = Math.max(0, this.hurtCooldown - dt);
         this.boostFlash = Math.max(0, this.boostFlash - dt);
@@ -148,14 +158,18 @@ export class PlayerShip extends Entity {
             this.boostFlash = 0.18;
         }
 
-        // 共通移動
-        super.update(dt);
-
         // 操作してないときだけ、ゆっくり右に寄せる（逆走可）
         if (!moving && this.controlsEnabled) {
-            const cruise = 30; // もっと遅くしたければ 10〜20
+            const cruise = 50; // もっと遅くしたければ 10〜20
             this.vel.x += (cruise - this.vel.x) * (0.6 * dt);
         }
+
+        // 向き更新：速度が十分あるときだけ（微小ブレ防止）
+        const sp = Math.hypot(this.vel.x, this.vel.y);
+        if (sp > 6) this.heading = Math.atan2(this.vel.y, this.vel.x);
+
+        // 共通移動
+        super.update(dt);
 
         // リング（x wrap）
         if (worldW > 0) this.pos.x = wrap(this.pos.x, worldW);
@@ -165,12 +179,6 @@ export class PlayerShip extends Entity {
             const m = 24; // 端マージン
             this.pos.y = clamp(this.pos.y, m, worldH - m);
         }
-
-        // 画面端ラップ（軌道感）
-        if (this.pos.x < 0) this.pos.x += worldW;
-        if (this.pos.x > worldW) this.pos.x -= worldW;
-        if (this.pos.y < 0) this.pos.y += worldH;
-        if (this.pos.y > worldH) this.pos.y -= worldH;
 
         // 光ゲージの増減（時間経過）
         this.lightCharge = clamp01(
@@ -186,25 +194,71 @@ export class PlayerShip extends Entity {
     ): void {
         const x = sx ?? this.pos.x;
         const y = sy ?? this.pos.y;
+
+        const fade = 1 - this.warpFade;
+
+        // 速度方向（止まってたら右向き）
+        const speed = Math.hypot(this.vel.x, this.vel.y);
+        const moving = speed > 20;
+
         ctx.save();
         ctx.translate(x, y);
+        ctx.rotate(this.heading);
 
-        // 推進光のグロー（UIじゃないUI）
-        const fade = 1 - this.warpFade;
-        const glow = 0.25 + 0.75 * this.powerLevel;
-        const glowR = (18 + 22 * glow * this.lightCharge) * (0.6 + 0.4 * fade);
-        ctx.globalAlpha =
-            (0.12 + 0.35 * glow + (this.boostFlash > 0 ? 0.35 : 0)) * fade;
-        ctx.beginPath();
-        ctx.arc(0, 0, glowR, 0, Math.PI * 2);
-        ctx.fillStyle = "#fff";
-        ctx.fill();
-        ctx.globalAlpha = 1;
+        // ---- 推進光（グロー）: smooth で自然に消える ----
+        const baseGlow = 0.25 + 0.75 * this.powerLevel; // 0.25..1
+        const intensity = baseGlow * this.lightCharge * fade; // 0..1
 
+        const smooth = (t: number) =>
+            t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+
+        // intensity が 0..eps で 0→1 になる（epsより大きいと1固定）
+        const eps = 0.08;
+        const vis = smooth(intensity / eps);
+
+        // 取得フラッシュ
+        const flash = clamp01(this.pickupFlash / 0.25);
+        const extra = flash;
+
+        const baseAlpha =
+            (0.1 +
+                0.3 * baseGlow +
+                0.45 * extra +
+                (this.boostFlash > 0 ? 0.35 : 0)) *
+            fade;
+
+        if (vis > 0.002) {
+            const glowR =
+                (16 + 34 * baseGlow) *
+                (0.35 + 0.65 * this.lightCharge) *
+                (1 + 0.18 * extra);
+
+            ctx.globalAlpha = baseAlpha * vis;
+            ctx.beginPath();
+            ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+            ctx.fillStyle = "#fff";
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+
+        // ---- 移動の“波” ----
+        if (moving && vis > 0.02) {
+            const tail =
+                Math.min(1, speed / 420) * (0.3 + 0.7 * this.lightCharge);
+            for (let i = 0; i < 3; i++) {
+                const d = 14 + i * 14;
+                const w = 18 + i * 14;
+                const h = 4 + i * 2;
+
+                ctx.globalAlpha = 0.1 * tail * (1 - i / 3) * fade;
+                ctx.beginPath();
+                ctx.ellipse(-d, 0, w, h, 0, 0, Math.PI * 2);
+                ctx.fillStyle = "#fff";
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
         // 船体（シンプル三角）
-        const angle = Math.atan2(this.vel.y, this.vel.x);
-        if (Math.abs(this.vel.x) + Math.abs(this.vel.y) > 0.02)
-            ctx.rotate(angle);
 
         ctx.beginPath();
         ctx.moveTo(18, 0);
