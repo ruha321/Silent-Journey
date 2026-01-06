@@ -12,3 +12,14 @@ export const norm = (a: Vec2): Vec2 => {
 };
 export const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 export const dot = (a: Vec2, b: Vec2): number => a.x * b.x + a.y * b.y;
+export const clamp = (x: number, a: number, b: number) =>
+    Math.max(a, Math.min(b, x));
+
+// 0..W に折り返す
+export const wrap = (x: number, W: number) => ((x % W) + W) % W;
+
+// -W/2..W/2 に収める「最短差分」
+export const wrapDelta = (dx: number, W: number) => {
+    dx = ((((dx + W / 2) % W) + W) % W) - W / 2;
+    return dx;
+};

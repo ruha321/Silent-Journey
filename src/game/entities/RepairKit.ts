@@ -6,10 +6,13 @@ export class RepairKit extends Entity {
         super(pos, v(0, 0), 10);
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    draw(ctx: CanvasRenderingContext2D, sx?: number, sy?: number): void {
         if (this.dead) return;
+        const x = sx ?? this.pos.x;
+        const y = sy ?? this.pos.y;
+
         ctx.save();
-        ctx.translate(this.pos.x, this.pos.y);
+        ctx.translate(x, y);
 
         ctx.beginPath();
         ctx.arc(0, 0, 6, 0, Math.PI * 2);

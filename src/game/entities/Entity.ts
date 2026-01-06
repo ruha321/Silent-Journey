@@ -4,7 +4,7 @@ export interface Updatable {
     update(dt: number, worldW?: number, worldH?: number): void;
 }
 export interface Drawable {
-    draw(ctx: CanvasRenderingContext2D): void;
+    draw(ctx: CanvasRenderingContext2D, sx?: number, sy?: number): void;
 }
 
 export abstract class Entity implements Updatable, Drawable {
@@ -24,5 +24,9 @@ export abstract class Entity implements Updatable, Drawable {
         this.pos = add(this.pos, mul(this.vel, dt));
     }
 
-    abstract draw(ctx: CanvasRenderingContext2D): void;
+    abstract draw(
+        ctx: CanvasRenderingContext2D,
+        sx?: number,
+        sy?: number
+    ): void;
 }

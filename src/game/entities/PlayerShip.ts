@@ -1,5 +1,5 @@
 import { Input } from "../../core/input";
-import { type Vec2, v, clamp01, mul, norm } from "../../core/vec2";
+import { type Vec2, v, clamp01, mul, norm, clamp, wrap } from "../../core/vec2";
 import { Entity } from "./Entity";
 
 export class PlayerShip extends Entity {
@@ -27,6 +27,10 @@ export class PlayerShip extends Entity {
     private lightDrain = 0.1;
     private lightRegen = 0.5;
 
+    // ワープ時の光の演出用
+    private controlsEnabled = true;
+    private warpFade = 0; // 0..1（1で光が消える）
+
     // ブースト
     private boostCost = 0.3;
     private boostImpulse = 650;
@@ -35,6 +39,14 @@ export class PlayerShip extends Entity {
     constructor(pos: Vec2, input: Input) {
         super(pos, v(0, 0), 12); // ← super
         this.input = input;
+    }
+
+    setControlsEnabled(v: boolean) {
+        this.controlsEnabled = v;
+    }
+
+    setWarpFade(f: number) {
+        this.warpFade = Math.max(0, Math.min(1, f));
     }
 
     isDestroyed(): boolean {
@@ -76,18 +88,22 @@ export class PlayerShip extends Entity {
         this.boostFlash = Math.max(0, this.boostFlash - dt);
 
         // 入力（WASD + 矢印）
-        const ax =
-            (this.input.isDown("ArrowRight") || this.input.isDown("KeyD")
-                ? 1
-                : 0) -
-            (this.input.isDown("ArrowLeft") || this.input.isDown("KeyA")
-                ? 1
-                : 0);
-        const ay =
-            (this.input.isDown("ArrowDown") || this.input.isDown("KeyS")
-                ? 1
-                : 0) -
-            (this.input.isDown("ArrowUp") || this.input.isDown("KeyW") ? 1 : 0);
+        const ax = this.controlsEnabled
+            ? (this.input.isDown("ArrowRight") || this.input.isDown("KeyD")
+                  ? 1
+                  : 0) -
+              (this.input.isDown("ArrowLeft") || this.input.isDown("KeyA")
+                  ? 1
+                  : 0)
+            : 0;
+        const ay = this.controlsEnabled
+            ? (this.input.isDown("ArrowDown") || this.input.isDown("KeyS")
+                  ? 1
+                  : 0) -
+              (this.input.isDown("ArrowUp") || this.input.isDown("KeyW")
+                  ? 1
+                  : 0)
+            : 0;
 
         const moving = ax !== 0 || ay !== 0;
 
@@ -108,6 +124,7 @@ export class PlayerShip extends Entity {
 
         // ブースト（Space）
         if (
+            this.controlsEnabled &&
             this.input.consumePressed("Space") &&
             this.lightCharge >= this.boostCost
         ) {
@@ -134,6 +151,21 @@ export class PlayerShip extends Entity {
         // 共通移動
         super.update(dt);
 
+        // 操作してないときだけ、ゆっくり右に寄せる（逆走可）
+        if (!moving && this.controlsEnabled) {
+            const cruise = 30; // もっと遅くしたければ 10〜20
+            this.vel.x += (cruise - this.vel.x) * (0.6 * dt);
+        }
+
+        // リング（x wrap）
+        if (worldW > 0) this.pos.x = wrap(this.pos.x, worldW);
+
+        // yは端っこに行かないように（画面と同じ高さ運用）
+        if (worldH > 0) {
+            const m = 24; // 端マージン
+            this.pos.y = clamp(this.pos.y, m, worldH - m);
+        }
+
         // 画面端ラップ（軌道感）
         if (this.pos.x < 0) this.pos.x += worldW;
         if (this.pos.x > worldW) this.pos.x -= worldW;
@@ -147,14 +179,22 @@ export class PlayerShip extends Entity {
         );
     }
 
-    override draw(ctx: CanvasRenderingContext2D): void {
+    override draw(
+        ctx: CanvasRenderingContext2D,
+        sx?: number,
+        sy?: number
+    ): void {
+        const x = sx ?? this.pos.x;
+        const y = sy ?? this.pos.y;
         ctx.save();
-        ctx.translate(this.pos.x, this.pos.y);
+        ctx.translate(x, y);
 
         // 推進光のグロー（UIじゃないUI）
+        const fade = 1 - this.warpFade;
         const glow = 0.25 + 0.75 * this.powerLevel;
-        const glowR = 18 + 22 * glow * this.lightCharge;
-        ctx.globalAlpha = 0.12 + 0.35 * glow + (this.boostFlash > 0 ? 0.35 : 0);
+        const glowR = (18 + 22 * glow * this.lightCharge) * (0.6 + 0.4 * fade);
+        ctx.globalAlpha =
+            (0.12 + 0.35 * glow + (this.boostFlash > 0 ? 0.35 : 0)) * fade;
         ctx.beginPath();
         ctx.arc(0, 0, glowR, 0, Math.PI * 2);
         ctx.fillStyle = "#fff";

@@ -6,10 +6,13 @@ export class LightFragment extends Entity {
         super(pos, v(0, 0), 7);
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    draw(ctx: CanvasRenderingContext2D, sx?: number, sy?: number): void {
         if (this.dead) return;
+        const x = sx ?? this.pos.x;
+        const y = sy ?? this.pos.y;
+
         ctx.beginPath();
-        ctx.arc(this.pos.x, this.pos.y, 2.5, 0, Math.PI * 2);
+        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
         ctx.fillStyle = "#ffffff";
         ctx.fill();
     }

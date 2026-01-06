@@ -19,11 +19,17 @@ export class Debris extends Entity {
         if (this.pos.y > worldH) this.pos.y -= worldH;
     }
 
-    override draw(ctx: CanvasRenderingContext2D): void {
+    override draw(
+        ctx: CanvasRenderingContext2D,
+        sx?: number,
+        sy?: number
+    ): void {
         if (this.dead) return;
+        const x = sx ?? this.pos.x;
+        const y = sy ?? this.pos.y;
 
         ctx.beginPath();
-        ctx.arc(this.pos.x, this.pos.y, this.size, 0, Math.PI * 2);
+        ctx.arc(x, y, this.size, 0, Math.PI * 2);
         ctx.strokeStyle = "#555";
         ctx.lineWidth = 1.5;
         ctx.stroke();

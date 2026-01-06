@@ -1,12 +1,10 @@
 import { Input } from "../core/input";
 import { TitleScene } from "./scenes/TitleScene";
-import { PlanetScene } from "./scenes/PlanetScene";
+import { PlanetScene, type PlanetConfig } from "./scenes/PlanetScene";
 import { WarpScene } from "./scenes/WarpScene";
 import { EndingScene } from "./scenes/EndingScene";
 import { GameOverScene } from "./scenes/GameOverScene";
 import type { Scene } from "./scenes/Scene";
-
-type PlanetConfig = { lights: number; debris: number; debrisSpeed: number };
 
 export class Game {
     readonly view = { w: 0, h: 0 };
@@ -16,10 +14,10 @@ export class Game {
 
     // ステージ設定
     private planets: PlanetConfig[] = [
-        { lights: 10, debris: 5, debrisSpeed: 40 },
-        { lights: 12, debris: 7, debrisSpeed: 55 },
-        { lights: 14, debris: 9, debrisSpeed: 70 },
-        { lights: 16, debris: 12, debrisSpeed: 85 },
+        { worldW: 1800, lights: 10, debris: 5, debrisSpeed: 40, repairs: 1 },
+        { worldW: 2400, lights: 12, debris: 7, debrisSpeed: 55, repairs: 1 },
+        { worldW: 3200, lights: 14, debris: 9, debrisSpeed: 70, repairs: 2 },
+        { worldW: 4200, lights: 16, debris: 12, debrisSpeed: 85, repairs: 2 },
     ];
 
     private planetIndex = 0;
