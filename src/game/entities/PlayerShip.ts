@@ -258,6 +258,14 @@ export class PlayerShip extends Entity {
             }
             ctx.globalAlpha = 1;
         }
+
+        // warpFadeが0.35超えた辺りから船体も消え始める（近づいた時に薄くなるのも少しだけ出る）
+        const shipFade = clamp01((this.warpFade - 0.35) / 0.65); // 0..1
+        const shipA = 1 - shipFade;
+
+        // 船体＆ランプはこのalphaでまとめてフェード
+        ctx.globalAlpha = shipA;
+
         // 船体（シンプル三角）
 
         ctx.beginPath();
@@ -283,6 +291,8 @@ export class PlayerShip extends Entity {
         ctx.beginPath();
         ctx.arc(-2, 0, 3.3, 0, Math.PI * 2);
         ctx.fill();
+
+        ctx.globalAlpha = 1;
 
         ctx.restore();
     }

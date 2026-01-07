@@ -50,6 +50,8 @@ export class PlanetScene implements Scene {
     private warpRays: { a: number; s: number }[] = [];
     private warpT = -1; // ワープ突入演出タイマー（-1: 未突入 / 0以上: 演出中）
     private deathT = -1; // ゲームオーバー突入演出 (-1: 未突入)
+    // ゲート出現の“気づき”演出
+    private gatePingT = -1; // 0..:発動中
 
     constructor(
         private game: Game,
@@ -301,7 +303,14 @@ export class PlanetScene implements Scene {
         if (this.warpGate && !this.warpGate.isVisible()) {
             if (this.gateFullyInView(this.warpGate, 10)) {
                 this.warpGate.spawn();
+                this.gatePingT = 0;
             }
+        }
+
+        // ゲート出現ピンの時間進行
+        if (this.gatePingT >= 0) {
+            this.gatePingT += dt;
+            if (this.gatePingT > 0.25) this.gatePingT = -1;
         }
 
         // 死亡（即遷移せず、軽く演出）
@@ -381,6 +390,18 @@ export class PlanetScene implements Scene {
         for (const r of this.repairs)
             r.draw(ctx, this.sx(r.pos.x), this.sy(r.pos.y));
 
+        // ゲート出現ピン：一瞬だけ紫白く光る
+        if (this.gatePingT >= 0) {
+            const { w, h } = this.game.view;
+            const p = Math.max(0, Math.min(1, this.gatePingT / 0.1)); // 0.1秒で立ち上がる
+            const a = (1 - p) * 0.35;
+
+            ctx.globalAlpha = a;
+            ctx.fillStyle = "#f3eaff"; // 白紫
+            ctx.fillRect(0, 0, w, h);
+            ctx.globalAlpha = 1;
+        }
+
         // ワープゲートの描画
         if (this.warpGate) {
             const sx = this.sx(this.warpGate.x);
@@ -388,11 +409,14 @@ export class PlanetScene implements Scene {
             this.warpGate.draw(ctx, sx, sy);
         }
 
-        this.player.draw(
-            ctx,
-            this.sx(this.player.pos.x),
-            this.sy(this.player.pos.y)
-        );
+        const hideShip = this.warpT >= 0 && this.warpT > 0.7;
+        if (!hideShip) {
+            this.player.draw(
+                ctx,
+                this.sx(this.player.pos.x),
+                this.sy(this.player.pos.y)
+            );
+        }
 
         // ---- ワープ突入の“派手演出” ----
         if (this.warpT >= 0) {
