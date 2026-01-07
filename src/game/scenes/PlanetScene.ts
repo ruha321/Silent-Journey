@@ -46,6 +46,8 @@ export class PlanetScene implements Scene {
     private camY = 0;
 
     private warpGate: WarpGate | null = null;
+    // ワープ演出用（視界判定＆派手演出の素材）
+    private warpRays: { a: number; s: number }[] = [];
     private warpT = -1; // ワープ突入演出タイマー（-1: 未突入 / 0以上: 演出中）
     private deathT = -1; // ゲームオーバー突入演出 (-1: 未突入)
 
@@ -56,7 +58,7 @@ export class PlanetScene implements Scene {
     ) {
         const { w, h } = game.view;
         this.worldW = cfg.worldW;
-        this.worldH = h; // はる要望：縦は画面と同じくらい
+        this.worldH = h;
 
         this.player = new PlayerShip(v(this.worldW * 0.5, h * 0.5), game.input);
         this.player.grantIFrames(1.2);
@@ -133,58 +135,13 @@ export class PlanetScene implements Scene {
         return h * 0.5 + (wy - this.camY);
     }
 
-    private drawWarpGate(
-        ctx: CanvasRenderingContext2D,
-        x: number,
-        y: number,
-        r: number,
-        a: number
-    ) {
-        if (a <= 0.001) return;
-
-        const t = performance.now() / 1000;
-        const pulse = 1 + 0.06 * Math.sin(t * 2.1);
-
-        ctx.save();
-        ctx.translate(x, y);
-
-        // 外側の“にじみ” (紫)
-        ctx.globalAlpha = a * 0.18;
-        ctx.beginPath();
-        ctx.arc(0, 0, r * 1.75 * pulse, 0, Math.PI * 2);
-        ctx.fillStyle = "#c79bff";
-        ctx.fill();
-
-        // メインリング（太くて明るい）
-        ctx.globalAlpha = a * 0.95;
-        ctx.lineWidth = 8;
-        ctx.strokeStyle = "#e9fbff";
-        ctx.beginPath();
-        ctx.arc(0, 0, r * pulse, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // 内側リング（薄い）
-        ctx.globalAlpha = a * 0.35;
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "#b56bff";
-        ctx.beginPath();
-        ctx.arc(0, 0, r * 0.72 * pulse, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // 回転する“欠けた弧”（ゲート感）
-        ctx.globalAlpha = 0.85;
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = "#ffffff";
-        const rot = t * 0.9;
-        for (let i = 0; i < 3; i++) {
-            const a0 = rot + i * 2.1;
-            ctx.beginPath();
-            ctx.arc(0, 0, r * pulse, a0, a0 + 0.75);
-            ctx.stroke();
-        }
-
-        ctx.restore();
-        ctx.globalAlpha = 1;
+    private inView(wx: number, wy: number, margin = 120): boolean {
+        const { w, h } = this.game.view;
+        const sx = this.sx(wx);
+        const sy = this.sy(wy);
+        return (
+            sx > -margin && sx < w + margin && sy > -margin && sy < h + margin
+        );
     }
 
     update(dt: number): void {
@@ -263,7 +220,6 @@ export class PlanetScene implements Scene {
             const yMargin = 32;
             const p = this.randPosFarFromPlayer(260, yMargin) as any;
             this.warpGate = new WarpGate(p.x, p.y, 56);
-            this.warpGate.spawn();
         }
 
         // ゲート更新（見た目・粒子）
@@ -334,6 +290,13 @@ export class PlanetScene implements Scene {
 
         this.updateCamera();
 
+        // まだ出現演出してないゲートが視界に入ったら spawn
+        if (this.warpGate && !this.warpGate.isVisible()) {
+            if (this.inView(this.warpGate.x, this.warpGate.y, 140)) {
+                this.warpGate.spawn();
+            }
+        }
+
         // 死亡（即遷移せず、軽く演出）
         if (this.player.isDestroyed()) {
             this.deathT = 0;
@@ -374,6 +337,15 @@ export class PlanetScene implements Scene {
                 this.player.setControlsEnabled(false);
                 this.player.vel = v(0, 0);
                 this.warpGate.beginConsume();
+            }
+
+            // ワープ演出の“放射線”を固定生成（毎フレームrandしない）
+            if (this.warpRays.length === 0) {
+                const n = 140;
+                this.warpRays = Array.from({ length: n }, () => ({
+                    a: Math.random() * Math.PI * 2,
+                    s: 0.4 + Math.random() * 1.6,
+                }));
             }
         }
 
