@@ -373,11 +373,59 @@ export class PlanetScene implements Scene {
             d.draw(ctx, this.sx(d.pos.x), this.sy(d.pos.y));
         for (const r of this.repairs)
             r.draw(ctx, this.sx(r.pos.x), this.sy(r.pos.y));
+
+        // ワープゲートの描画
+        if (this.warpGate) {
+            const sx = this.sx(this.warpGate.x);
+            const sy = this.sy(this.warpGate.y);
+            this.warpGate.draw(ctx, sx, sy);
+        }
+
         this.player.draw(
             ctx,
             this.sx(this.player.pos.x),
             this.sy(this.player.pos.y)
         );
+
+        // ---- ワープ突入の“派手演出” ----
+        if (this.warpT >= 0) {
+            const { w, h } = this.game.view;
+            const cx = this.warpGate ? this.sx(this.warpGate.x) : w * 0.5;
+            const cy = this.warpGate ? this.sy(this.warpGate.y) : h * 0.5;
+
+            // 0..1（2.6秒で立ち上がる）
+            const p = Math.max(0, Math.min(1, this.warpT / 2.6));
+
+            // 紫の渦（中心発光）
+            const R = Math.max(w, h) * (0.6 + 0.6 * p);
+            const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+            g.addColorStop(0, `rgba(197,155,255,${0.35 * p})`);
+            g.addColorStop(0.25, `rgba(120,40,180,${0.18 * p})`);
+            g.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, w, h);
+
+            // 星の伸び（放射状の線）
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.globalAlpha = 0.2 * p;
+            ctx.strokeStyle = "#ffffff";
+            for (const r of this.warpRays) {
+                const a = r.a + this.warpT * 0.9; // わずかに回転
+                const x0 = Math.cos(a) * (12 + 10 * p);
+                const y0 = Math.sin(a) * (12 + 10 * p);
+                const L = (80 + 900 * p) * r.s;
+                const x1 = Math.cos(a) * L;
+                const y1 = Math.sin(a) * L;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x0, y0);
+                ctx.lineTo(x1, y1);
+                ctx.stroke();
+            }
+            ctx.restore();
+            ctx.globalAlpha = 1;
+        }
 
         // 画面フェード（演出）
         if (this.warpT >= 0) {
@@ -394,14 +442,6 @@ export class PlanetScene implements Scene {
             ctx.fillStyle = "#000000";
             ctx.fillRect(0, 0, w, h);
             ctx.globalAlpha = 1;
-        }
-
-        // ワープゲートの描画
-        if (this.warpGate) {
-            const sx = this.sx(this.warpGate.x);
-            const sy = this.sy(this.warpGate.y);
-
-            this.warpGate.draw(ctx, sx, sy);
         }
 
         // デバッグ用テキスト
