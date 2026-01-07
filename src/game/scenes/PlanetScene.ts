@@ -56,7 +56,7 @@ export class PlanetScene implements Scene {
         private cfg: PlanetConfig,
         private planetIndex: number
     ) {
-        const { w, h } = game.view;
+        const { h } = game.view;
         this.worldW = cfg.worldW;
         this.worldH = h;
 
@@ -133,6 +133,16 @@ export class PlanetScene implements Scene {
     private sy(wy: number) {
         const { h } = this.game.view;
         return h * 0.5 + (wy - this.camY);
+    }
+
+    // （追加）ゲートが“しっかり画面内”に入った判定（円周がだいたい収まる）
+    private gateFullyInView(g: WarpGate, pad = 10): boolean {
+        const { w, h } = this.game.view;
+        const sx = this.sx(g.x);
+        const sy = this.sy(g.y);
+
+        const m = g.getRadius() + pad; // 半径＋少し余裕
+        return sx > m && sx < w - m && sy > -m && sy < h + m;
     }
 
     private inView(wx: number, wy: number, margin = 120): boolean {
@@ -289,7 +299,7 @@ export class PlanetScene implements Scene {
 
         // まだ出現演出してないゲートが視界に入ったら spawn
         if (this.warpGate && !this.warpGate.isVisible()) {
-            if (this.inView(this.warpGate.x, this.warpGate.y, 140)) {
+            if (this.gateFullyInView(this.warpGate, 10)) {
                 this.warpGate.spawn();
             }
         }

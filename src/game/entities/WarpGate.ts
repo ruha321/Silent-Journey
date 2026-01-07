@@ -31,6 +31,10 @@ export class WarpGate {
         }));
     }
 
+    getRadius(): number {
+        return this.r * 1.75;
+    }
+
     beginConsume() {
         if (this.state === "idle") {
             this.state = "consuming";
