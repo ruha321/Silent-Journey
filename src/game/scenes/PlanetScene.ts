@@ -474,17 +474,6 @@ export class PlanetScene implements Scene {
             ctx.fillRect(0, 0, w, h);
             ctx.globalAlpha = 1;
         }
-
-        // デバッグ用テキスト
-        ctx.fillStyle = "#666";
-        ctx.font = "12px sans-serif";
-        ctx.fillText(
-            `Planet ${this.planetIndex + 1}  Light ${this.collected}/${
-                this.total
-            }`,
-            12,
-            18
-        );
     }
 
     isDone(): boolean {
