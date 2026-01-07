@@ -171,10 +171,7 @@ export class PlanetScene implements Scene {
             this.player.setWarpFade(fade);
             this.updateCamera();
 
-            if (
-                this.warpT >= 2.2 &&
-                (!this.warpGate || this.warpGate.isDone())
-            ) {
+            if (this.warpT >= 3.8) {
                 this.done = true;
                 this.next = "warp";
                 this.game.setWarpFrom(this.planetIndex);
