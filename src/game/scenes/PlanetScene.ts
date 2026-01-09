@@ -229,6 +229,7 @@ export class PlanetScene implements Scene {
             const yMargin = 32;
             const p = this.randPosFarFromPlayer(260, yMargin) as any;
             this.warpGate = new WarpGate(p.x, p.y, 56);
+            this.gatePingT = 0;
         }
 
         // ゲート更新（見た目・粒子）
@@ -303,7 +304,6 @@ export class PlanetScene implements Scene {
         if (this.warpGate && !this.warpGate.isVisible()) {
             if (this.gateFullyInView(this.warpGate, 10)) {
                 this.warpGate.spawn();
-                this.gatePingT = 0;
             }
         }
 
