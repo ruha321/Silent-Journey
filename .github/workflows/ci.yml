@@ -4,8 +4,6 @@ run-name: ${{ github.ref_name }} CI
 
 on:
   pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 
