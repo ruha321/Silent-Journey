@@ -1,4 +1,5 @@
-name: Silent Journey apiVersion
+name: Silent Journey ci
+run-name: ${{ github.ref }} CI
 
 
 on:
