@@ -1,0 +1,14 @@
+name: Silent Journey apiVersion
+
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+
+jobs:
+  build:
+    uses: .github/workflows/build.yml
