@@ -1,4 +1,5 @@
-name: Deploy
+name: Silent Journey Deploy
+run-name: ${{ github.ref }} deploy
 
 on:
   push:
@@ -17,7 +18,7 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npm build
+      - run: npm run build
 
       - uses: actions/configure-pages@v5
 
