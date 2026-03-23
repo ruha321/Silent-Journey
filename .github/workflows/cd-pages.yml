@@ -5,17 +5,34 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - 'index.html'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+      - 'vite.config.ts'
   workflow_dispatch:
 
 jobs:
   build:
     uses: ./.github/workflows/build.yml
 
-  deploy:
+  delivery:
     needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: delivery
 
     permissions:
-      contents: read
       id-token: write
       pages: write
 
