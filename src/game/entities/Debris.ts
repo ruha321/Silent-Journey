@@ -2,7 +2,7 @@ import { type Vec2 } from "../../core/vec2";
 import { Entity } from "./Entity";
 
 export class Debris extends Entity {
-    private size: number;
+    // private size: number;
     private kind: "chunk" | "shard" | "spike";
     private hue: number;
     private rot0: number;
@@ -11,7 +11,7 @@ export class Debris extends Entity {
 
     constructor(pos: Vec2, vel: Vec2, radius: number) {
         super(pos, vel, radius);
-        this.size = radius;
+        // this.size = radius;
         const kinds: Debris["kind"][] = ["chunk", "shard", "spike"];
         this.kind = kinds[Math.floor(Math.random() * kinds.length)];
 
@@ -39,7 +39,7 @@ export class Debris extends Entity {
     override draw(
         ctx: CanvasRenderingContext2D,
         sx?: number,
-        sy?: number
+        sy?: number,
     ): void {
         if (this.dead) return;
         const x = sx ?? this.pos.x;

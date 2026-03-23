@@ -1,0 +1,21 @@
+name: YAML file Lint
+
+on:
+  push:
+    paths:
+      - .github/workflows/**/*.yml
+      - .github/workflows/**/*.yaml
+  pull_request:
+    paths:
+      - .github/workflows/**/*.yml
+      - .github/workflows/**/*.yaml
+  workflow_call:
+
+jobs:
+  workflowLint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: linter
+        uses: devops-actions/actionlint@v0.1.11
+

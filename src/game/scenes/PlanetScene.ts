@@ -56,10 +56,10 @@ export class PlanetScene implements Scene {
     constructor(
         private game: Game,
         private cfg: PlanetConfig,
-        private planetIndex: number
+        private planetIndex: number,
     ) {
         const { h } = game.view;
-        this.worldW = cfg.worldW;
+        this.worldW = this.cfg.worldW;
         this.worldH = h;
 
         this.player = new PlayerShip(v(this.worldW * 0.5, h * 0.5), game.input);
@@ -70,17 +70,17 @@ export class PlanetScene implements Scene {
         this.camY = h * 0.5;
 
         // lights
-        this.total = cfg.lights;
+        this.total = this.cfg.lights;
         const yMargin = 32;
-        for (let i = 0; i < cfg.lights; i++) {
+        for (let i = 0; i < this.cfg.lights; i++) {
             const spawnPos = this.randPosFarFromPlayer(120, yMargin);
             this.lights.push(new LightFragment(spawnPos));
         }
 
         // debris
-        for (let i = 0; i < cfg.debris; i++) {
+        for (let i = 0; i < this.cfg.debris; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = cfg.debrisSpeed * (0.5 + Math.random());
+            const speed = this.cfg.debrisSpeed * (0.5 + Math.random());
             const vel = v(Math.cos(angle) * speed, Math.sin(angle) * speed);
             const r = 10 + Math.random() * 16;
             const spawnPos = this.randPosFarFromPlayer(260, 16);
@@ -88,7 +88,7 @@ export class PlanetScene implements Scene {
         }
 
         // repair kits
-        const repairCount = cfg.repairs ?? 1 + (planetIndex >= 2 ? 1 : 0);
+        const repairCount = this.cfg.repairs ?? 1 + (planetIndex >= 2 ? 1 : 0);
         for (let i = 0; i < repairCount; i++) {
             const spawnPos = this.randPosFarFromPlayer(200, yMargin);
             this.repairs.push(new RepairKit(spawnPos));
@@ -108,7 +108,7 @@ export class PlanetScene implements Scene {
         // 保険：右方向にずらす
         return v(
             wrap(this.player.pos.x + minDist, this.worldW),
-            clamp(this.player.pos.y, yMargin, this.worldH - yMargin)
+            clamp(this.player.pos.y, yMargin, this.worldH - yMargin),
         );
     }
 
@@ -145,15 +145,6 @@ export class PlanetScene implements Scene {
 
         const m = g.getRadius() + pad; // 半径＋少し余裕
         return sx > m && sx < w - m && sy > -m && sy < h + m;
-    }
-
-    private inView(wx: number, wy: number, margin = 120): boolean {
-        const { w, h } = this.game.view;
-        const sx = this.sx(wx);
-        const sy = this.sy(wy);
-        return (
-            sx > -margin && sx < w + margin && sy > -margin && sy < h + margin
-        );
     }
 
     update(dt: number): void {
@@ -253,12 +244,12 @@ export class PlanetScene implements Scene {
 
                 this.player.pos.x = wrap(
                     this.player.pos.x + n.x * (overlap + 0.5),
-                    this.worldW
+                    this.worldW,
                 );
                 this.player.pos.y = clamp(
                     this.player.pos.y + n.y * (overlap + 0.5),
                     0,
-                    this.worldH
+                    this.worldH,
                 );
 
                 // 2) ダメージはクールダウン中は入れない
@@ -333,7 +324,7 @@ export class PlanetScene implements Scene {
         if (this.warpGate && this.warpT < 0 && this.warpGate.isActive()) {
             const dx = wrapDelta(
                 this.player.pos.x - this.warpGate.x,
-                this.worldW
+                this.worldW,
             );
             const dy = this.player.pos.y - this.warpGate.y;
             const dxdy = { x: dx, y: dy };
@@ -344,7 +335,7 @@ export class PlanetScene implements Scene {
             // 近づくと少しだけ薄く（吸われてる感）
             const near = Math.max(
                 0,
-                Math.min(1, 1 - d / (this.warpGate.r * 3))
+                Math.min(1, 1 - d / (this.warpGate.r * 3)),
             );
             this.player.setWarpFade(near * 0.55);
 
@@ -414,7 +405,7 @@ export class PlanetScene implements Scene {
             this.player.draw(
                 ctx,
                 this.sx(this.player.pos.x),
-                this.sy(this.player.pos.y)
+                this.sy(this.player.pos.y),
             );
         }
 
