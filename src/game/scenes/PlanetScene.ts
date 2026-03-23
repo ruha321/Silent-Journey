@@ -59,7 +59,7 @@ export class PlanetScene implements Scene {
         private planetIndex: number,
     ) {
         const { h } = game.view;
-        this.worldW = cfg.worldW;
+        this.worldW = this.cfg.worldW;
         this.worldH = h;
 
         this.player = new PlayerShip(v(this.worldW * 0.5, h * 0.5), game.input);
@@ -70,17 +70,17 @@ export class PlanetScene implements Scene {
         this.camY = h * 0.5;
 
         // lights
-        this.total = cfg.lights;
+        this.total = this.cfg.lights;
         const yMargin = 32;
-        for (let i = 0; i < cfg.lights; i++) {
+        for (let i = 0; i < this.cfg.lights; i++) {
             const spawnPos = this.randPosFarFromPlayer(120, yMargin);
             this.lights.push(new LightFragment(spawnPos));
         }
 
         // debris
-        for (let i = 0; i < cfg.debris; i++) {
+        for (let i = 0; i < this.cfg.debris; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = cfg.debrisSpeed * (0.5 + Math.random());
+            const speed = this.cfg.debrisSpeed * (0.5 + Math.random());
             const vel = v(Math.cos(angle) * speed, Math.sin(angle) * speed);
             const r = 10 + Math.random() * 16;
             const spawnPos = this.randPosFarFromPlayer(260, 16);
@@ -88,7 +88,7 @@ export class PlanetScene implements Scene {
         }
 
         // repair kits
-        const repairCount = cfg.repairs ?? 1 + (planetIndex >= 2 ? 1 : 0);
+        const repairCount = this.cfg.repairs ?? 1 + (planetIndex >= 2 ? 1 : 0);
         for (let i = 0; i < repairCount; i++) {
             const spawnPos = this.randPosFarFromPlayer(200, yMargin);
             this.repairs.push(new RepairKit(spawnPos));

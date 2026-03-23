@@ -17,5 +17,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: linter
-        uses: devops-actions/actionlint@0.1.11
+        uses: devops-actions/actionlint@v0.1.11
 
