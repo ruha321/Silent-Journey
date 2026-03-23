@@ -1,5 +1,5 @@
 name: Silent Journey ci
-run-name: ${{ github.ref }} CI
+run-name: ${{ github.ref_name }} CI
 
 
 on:
