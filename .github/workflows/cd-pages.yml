@@ -7,37 +7,23 @@ on:
       - main
   workflow_dispatch:
 
-
 jobs:
   build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 25.8.1
-          cache: npm
-
-      - run: npm ci
-      - run: npm run build
-
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
+    uses: ./.github/workflows/build.yml
 
   deploy:
     needs: build
 
     permissions:
-      contents: write
+      contents: read
       id-token: write
       pages: write
 
     runs-on: ubuntu-latest
     environment:
       name: github-pages
+      url: ${{steps.deployment.outputs.page_url}}
     steps:
       - name: Deploy to Github Pages
+        id: deployment
         uses: actions/deploy-pages@v4
