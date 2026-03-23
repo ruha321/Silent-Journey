@@ -3,7 +3,6 @@ run-name: ${{ github.ref_name }} CI
 
 
 on:
-  push:
   pull_request:
     branches:
       - main
